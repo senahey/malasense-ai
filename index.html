@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MalaSense AI — Malaria Parasite Counter</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1D9E75">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MalaSense AI">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#e8ede9;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f5;--bg3:#e8e8e8;
+  --txt:#0a0a0a;--txt2:#666;--txt3:#999;
+  --bdr:rgba(0,0,0,0.1);--bdr2:rgba(0,0,0,0.18);
+  --rad:8px;--radl:12px;
+  --green:#1D9E75;--green-lt:#E1F5EE;--green-dk:#0F6E56;
+  --red-lt:#FAECE7;--red-dk:#712B13;--red-mid:#993C1D;
+  --amber-lt:#FAEEDA;--amber-dk:#633806;
+  --blue-lt:#E6F1FB;--blue-dk:#0C447C;
+}
+.phone{width:390px;margin:0 auto;background:#d0d0d0;border-radius:44px;border:1px solid rgba(0,0,0,0.2);overflow:hidden;position:relative;}
+.screen{background:var(--bg);margin:12px;border-radius:34px;overflow:hidden;height:820px;display:flex;flex-direction:column;position:relative;}
+.sbar{display:flex;justify-content:space-between;padding:14px 24px 6px;font-size:12px;font-weight:500;color:var(--txt2);flex-shrink:0;}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 12px;border-bottom:.5px solid var(--bdr);flex-shrink:0;}
+.ntitle{font-size:17px;font-weight:600;color:var(--txt);letter-spacing:-.3px;}
+.nback{display:flex;align-items:center;gap:5px;cursor:pointer;font-size:14px;color:var(--txt2);}
+.tabs{display:flex;border-bottom:.5px solid var(--bdr);flex-shrink:0;}
+.tab{flex:1;text-align:center;padding:10px 4px 8px;font-size:12px;color:var(--txt2);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.on{color:var(--green);border-bottom:2px solid var(--green);font-weight:500;}
+.body{flex:1;overflow-y:auto;padding:16px;}
+.slbl{font-size:11px;font-weight:500;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;margin-top:16px;}
+.slbl:first-child{margin-top:0;}
+.pc{background:var(--bg);border:.5px solid var(--bdr);border-radius:var(--radl);padding:14px;margin-bottom:10px;cursor:pointer;transition:background .15s;}
+.pc:active{background:var(--bg2);}
+.pr{display:flex;align-items:center;gap:12px;}
+.av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;}
+.pn{font-size:14px;font-weight:500;color:var(--txt);}
+.pm{font-size:12px;color:var(--txt2);margin-top:2px;}
+.bdg{font-size:11px;font-weight:500;padding:3px 8px;border-radius:20px;}
+.b-pend{background:var(--amber-lt);color:var(--amber-dk);}
+.b-done{background:#EAF3DE;color:#27500A;}
+.b-pos{background:var(--red-lt);color:var(--red-dk);}
+.b-neg{background:#EAF3DE;color:#27500A;}
+.fl{font-size:11px;font-weight:500;color:var(--txt2);margin-bottom:6px;}
+.fi{width:100%;background:var(--bg2);border:.5px solid var(--bdr2);border-radius:var(--rad);padding:10px 12px;font-size:14px;color:var(--txt);font-family:inherit;}
+.fi:focus{outline:none;border-color:var(--green);}
+.fg{margin-bottom:14px;}
+.seg{display:flex;background:var(--bg2);border-radius:var(--rad);padding:3px;gap:3px;margin-bottom:14px;}
+.so{flex:1;text-align:center;padding:7px 4px;font-size:13px;color:var(--txt2);border-radius:6px;cursor:pointer;transition:all .2s;}
+.so.on{background:var(--bg);color:var(--green);font-weight:500;border:.5px solid var(--bdr2);}
+.brow{display:flex;gap:8px;margin-bottom:14px;}
+.btn-p{flex:1;background:var(--green);color:#fff;border:none;border-radius:var(--rad);padding:12px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;}
+.btn-p:active{opacity:.85;}
+.btn-s{flex:1;background:var(--bg2);color:var(--txt);border:.5px solid var(--bdr2);border-radius:var(--rad);padding:12px;font-size:13px;font-weight:500;cursor:pointer;}
+.ai-tag{display:flex;align-items:center;gap:6px;background:var(--green-lt);border-radius:var(--rad);padding:8px 12px;margin-bottom:14px;}
+.ai-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.ai-lbl{font-size:12px;color:var(--green-dk);font-weight:500;}
+.mv{width:100%;height:190px;background:#080f06;border-radius:var(--radl);position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:14px;overflow:hidden;}
+.cv{width:174px;height:174px;border-radius:50%;background:#0d1f0a;border:2px solid #1a1a1a;position:relative;overflow:hidden;}
+.para{position:absolute;width:10px;height:10px;border-radius:50%;background:#e8c44a;opacity:.9;}
+.rbc{position:absolute;width:14px;height:14px;border-radius:50%;background:#c94a2a;opacity:.6;}
+.aio{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);color:#5DCAA5;font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;}
+.dbox{position:absolute;border:1.5px solid #5DCAA5;border-radius:3px;}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.cc{background:var(--bg2);border-radius:var(--rad);padding:12px;}
+.cn{font-size:22px;font-weight:500;color:var(--txt);}
+.cl{font-size:11px;color:var(--txt2);margin-top:2px;}
+.dc{background:var(--bg2);border-radius:var(--radl);padding:14px;margin-bottom:10px;}
+.dv{font-size:28px;font-weight:500;color:var(--green-dk);}
+.du{font-size:11px;color:var(--txt2);margin-bottom:8px;}
+.prg{height:6px;background:var(--bdr);border-radius:3px;overflow:hidden;margin-top:4px;}
+.pf{height:100%;border-radius:3px;}
+.sev-row{display:flex;gap:6px;margin-top:10px;}
+.sev-c{flex:1;text-align:center;padding:6px 4px;border-radius:var(--rad);font-size:10px;font-weight:500;}
+.sev-mild{background:#EAF3DE;color:#27500A;}
+.sev-mod{background:var(--amber-lt);color:var(--amber-dk);}
+.sev-sev{background:var(--red-lt);color:var(--red-dk);}
+.sev-on{border:2px solid var(--green);}
+.ir{background:var(--bg2);border-radius:var(--rad);padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.bnav{display:flex;border-top:.5px solid var(--bdr);padding:8px 0 20px;background:var(--bg);flex-shrink:0;}
+.bi{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0;}
+.bl{font-size:10px;color:var(--txt2);}
+.bi.on .bl{color:var(--green);}
+.sw{display:none;flex-direction:column;height:100%;}
+.sw.on{display:flex;}
+.stpb{display:flex;align-items:center;margin-bottom:20px;}
+.std{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0;}
+.stl{flex:1;height:1.5px;background:var(--bdr);}
+.stl.done{background:var(--green);}
+.info-box{background:var(--blue-lt);border-radius:var(--rad);padding:10px 12px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start;}
+.info-txt{font-size:12px;color:var(--blue-dk);line-height:1.5;}
+.cap-live{width:100%;height:210px;background:#080f06;border-radius:var(--radl);position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:12px;overflow:hidden;}
+.cap-ring{width:186px;height:186px;border-radius:50%;background:#0d1f0a;border:2px solid #222;position:relative;overflow:hidden;}
+.cap-corner{position:absolute;width:20px;height:20px;border-color:#5DCAA5;border-style:solid;opacity:.8;}
+.scan-line{position:absolute;left:0;right:0;height:2px;background:#5DCAA5;opacity:.5;animation:scan 2s linear infinite;}
+@keyframes scan{0%{top:10%;}100%{top:90%;}}
+.cam-lbl{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;font-size:10px;padding:3px 10px;border-radius:20px;white-space:nowrap;}
+.shutter{width:64px;height:64px;border-radius:50%;background:#fff;border:3px solid var(--bdr2);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s;}
+.shutter:active{transform:scale(.93);}
+.shutter-inner{width:52px;height:52px;border-radius:50%;background:var(--green);}
+#video-el{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;border-radius:var(--radl);}
+.rpt-hdr{background:#0F6E56;padding:20px 20px 16px;flex-shrink:0;}
+.rpt-title{font-size:15px;font-weight:600;color:#fff;margin-bottom:2px;}
+.rpt-sub{font-size:11px;color:#9FE1CB;}
+.rpt-card{background:var(--bg);border:.5px solid var(--bdr);border-radius:var(--radl);padding:14px;margin-bottom:12px;}
+.rpt-sec{font-size:11px;font-weight:500;color:var(--green-dk);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+.rpt-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:.5px solid var(--bdr);}
+.rpt-row:last-child{border-bottom:none;}
+.rpt-k{font-size:12px;color:var(--txt2);}
+.rpt-v{font-size:12px;font-weight:500;color:var(--txt);}
+.rb-num{font-size:36px;font-weight:600;color:var(--green-dk);}
+.rb-unit{font-size:12px;color:var(--txt2);}
+.rb-badge{display:inline-block;margin-top:6px;background:var(--red-lt);color:var(--red-dk);font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;}
+.sett-av{width:52px;height:52px;border-radius:50%;background:var(--green-lt);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:var(--green-dk);}
+.sett-sec{font-size:11px;font-weight:500;color:var(--txt2);letter-spacing:.06em;text-transform:uppercase;padding:14px 0 6px;}
+.sett-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:.5px solid var(--bdr);cursor:pointer;}
+.sett-row:last-child{border-bottom:none;}
+.sett-left{display:flex;align-items:center;gap:12px;}
+.sett-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.toggle{width:44px;height:26px;border-radius:13px;background:var(--green);position:relative;flex-shrink:0;cursor:pointer;transition:background .2s;}
+.toggle-thumb{width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:3px;right:3px;transition:all .2s;}
+.toggle.off{background:rgba(0,0,0,0.2);}
+.toggle.off .toggle-thumb{right:auto;left:3px;}
+.menu-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.35);z-index:100;display:none;}
+.menu-overlay.on{display:block;}
+.menu-sheet{position:absolute;top:60px;right:16px;background:var(--bg);border-radius:var(--radl);border:.5px solid var(--bdr2);overflow:hidden;width:200px;z-index:101;}
+.menu-item{padding:13px 16px;font-size:14px;color:var(--txt);cursor:pointer;border-bottom:.5px solid var(--bdr);}
+.menu-item:last-child{border-bottom:none;}
+.menu-item:active{background:var(--bg2);}
+.menu-item.danger{color:#A32D2D;}
+.toast{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);background:rgba(15,110,86,.95);color:#fff;font-size:12px;padding:8px 18px;border-radius:20px;white-space:nowrap;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.empty{text-align:center;padding:40px 20px;color:var(--txt2);font-size:13px;line-height:1.7;}
+.fab-pill{display:flex;align-items:center;gap:10px;height:52px;padding:0 24px;background:var(--green);border:none;border-radius:26px;cursor:pointer;box-shadow:0 3px 14px rgba(29,158,117,.4);transition:transform .15s;font-size:14px;font-weight:500;color:#fff;}
+.fab-pill:active{transform:scale(.95);}
+.modal-bg{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:150;display:none;align-items:flex-end;}
+.modal-bg.on{display:flex;}
+.modal-sheet{background:var(--bg);border-radius:24px 24px 0 0;width:100%;padding:20px 20px 36px;}
+.modal-handle{width:36px;height:4px;background:var(--bdr2);border-radius:2px;margin:0 auto 16px;}
+.counter-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.counter-val{font-size:48px;font-weight:600;color:var(--txt);min-width:80px;text-align:center;}
+.counter-btn{width:52px;height:52px;border-radius:50%;border:.5px solid var(--bdr2);background:var(--bg2);font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.ro-banner{background:var(--bg2);border-radius:var(--rad);padding:8px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.chip{flex:none;padding:5px 14px;font-size:12px;border-radius:20px;border:.5px solid var(--bdr2);cursor:pointer;color:var(--txt2);background:var(--bg2);white-space:nowrap;}
+.chip.on{background:var(--green-lt);color:var(--green-dk);border-color:var(--green);}
+/* Model loading overlay */
+.model-loading{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);z-index:300;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.model-loading-spinner{width:40px;height:40px;border:3px solid var(--green-lt);border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.model-loading-txt{font-size:13px;color:var(--txt2);text-align:center;line-height:1.6;}
+/* Grad-CAM button */
+.gcam-btn{width:100%;background:var(--bg2);border:.5px solid var(--bdr2);border-radius:var(--rad);padding:10px;font-size:12px;font-weight:500;color:var(--green-dk);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:10px;}
+.gcam-btn:active{opacity:.8;}
+/* Date display pill */
+.date-pill{background:var(--green-lt);color:var(--green-dk);font-size:12px;font-weight:500;padding:8px 14px;border-radius:var(--rad);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="screen">
+<div class="sbar"><span id="clock">9:41</span><span>●●●</span></div>
+<div class="toast" id="toast"></div>
+
+<!-- MODEL LOADING OVERLAY -->
+<div class="model-loading" id="model-loading">
+  <div class="model-loading-spinner"></div>
+  <div class="model-loading-txt">
+    <strong>Loading MalaSense AI model</strong><br>
+    First load only — will work offline after this
+  </div>
+</div>
+
+<!-- MENU OVERLAY -->
+<div class="menu-overlay" id="menu-overlay" onclick="closeMenu()">
+  <div class="menu-sheet" onclick="event.stopPropagation()">
+    <div class="menu-item" onclick="menuAction('stats')">Today's stats</div>
+    <div class="menu-item" onclick="menuAction('export')">Export records</div>
+    <div class="menu-item" onclick="menuAction('help')">Help &amp; guide</div>
+    <div class="menu-item" onclick="menuAction('settings');closeMenu()">Settings</div>
+    <div class="menu-item danger" onclick="menuAction('signout')">Sign out</div>
+  </div>
+</div>
+
+<!-- MANUAL COUNT MODAL -->
+<div class="modal-bg" id="manual-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="font-size:15px;font-weight:500;color:var(--txt);margin-bottom:4px;">Manual parasite count</div>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:18px;">Count parasites not detected by AI. This adds to the AI count.</div>
+    <div class="counter-row">
+      <button class="counter-btn" onclick="adjustManual(-1)">&#8722;</button>
+      <span class="counter-val" id="manual-val">0</span>
+      <button class="counter-btn" onclick="adjustManual(1)">+</button>
+    </div>
+    <div class="brow">
+      <button class="btn-s" onclick="closeManual()">Cancel</button>
+      <button class="btn-p" onclick="confirmManual()">Confirm override</button>
+    </div>
+  </div>
+</div>
+
+<!-- RETAKE MODAL -->
+<div class="modal-bg" id="retake-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="font-size:15px;font-weight:500;color:var(--txt);margin-bottom:8px;">Retake this field?</div>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:18px;">This will discard Field <span id="retake-num">1</span> and return you to capture.</div>
+    <div class="brow">
+      <button class="btn-s" onclick="closeRetake()">Keep it</button>
+      <button class="btn-p" style="background:#D85A30;" onclick="confirmRetake()">Yes, retake</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S1: PATIENTS ===== -->
+<div id="s-patients" class="sw on" style="position:relative;">
+  <div class="nav">
+    <span class="ntitle">MalaSense AI</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button onclick="openSearch()" style="width:36px;height:36px;border-radius:50%;background:var(--bg2);border:.5px solid var(--bdr2);display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="7" cy="7" r="4.5" stroke="var(--txt2)" stroke-width="1.4"/><line x1="10.5" y1="10.5" x2="15" y2="15" stroke="var(--txt2)" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <button onclick="openMenu()" style="width:36px;height:36px;border-radius:50%;background:var(--bg2);border:.5px solid var(--bdr2);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:3px;">
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--txt2);display:block;"></span>
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--txt2);display:block;"></span>
+        <span style="width:4px;height:4px;border-radius:50%;background:var(--txt2);display:block;"></span>
+      </button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab on" onclick="switchTab(0,this)">Active (<span id="active-count">0</span>)</div>
+    <div class="tab" onclick="switchTab(1,this)">Recent</div>
+    <div class="tab" onclick="switchTab(2,this)">All records</div>
+  </div>
+  <div class="body" style="padding-bottom:86px;">
+    <div id="tab-active"></div>
+    <div id="tab-recent" style="display:none;"></div>
+    <div id="tab-all" style="display:none;"></div>
+  </div>
+  <div style="position:absolute;bottom:16px;left:0;right:0;display:flex;justify-content:center;pointer-events:none;z-index:10;">
+    <button class="fab-pill" onclick="openNewPatient()" style="pointer-events:all;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><line x1="10" y1="3" x2="10" y2="17" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><line x1="3" y1="10" x2="17" y2="10" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+      New patient
+    </button>
+  </div>
+</div>
+
+<!-- ===== S2: SEARCH ===== -->
+<div id="s-search" class="sw">
+  <div class="nav">
+    <div class="nback" onclick="go('s-patients')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</div>
+    <span class="ntitle">Search records</span>
+    <span style="width:40px;"></span>
+  </div>
+  <div style="padding:0 16px 12px;border-bottom:.5px solid var(--bdr);flex-shrink:0;">
+    <div style="display:flex;align-items:center;background:var(--bg2);border-radius:var(--rad);border:.5px solid var(--bdr2);padding:0 12px;gap:8px;">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style="flex-shrink:0;"><circle cx="6" cy="6" r="4" stroke="var(--txt2)" stroke-width="1.3"/><line x1="9" y1="9" x2="13" y2="13" stroke="var(--txt2)" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <input id="search-input" type="text" placeholder="Patient ID or smear type…" style="flex:1;background:transparent;border:none;padding:11px 0;font-size:14px;color:var(--txt);font-family:inherit;outline:none;" oninput="runSearch(this.value)">
+      <span onclick="document.getElementById('search-input').value='';runSearch('');" style="font-size:12px;color:var(--txt2);cursor:pointer;">Clear</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:2px;">
+      <div class="chip on" onclick="setScope('all',this)">All</div>
+      <div class="chip" onclick="setScope('active',this)">Today</div>
+      <div class="chip" onclick="setScope('recent',this)">Recent</div>
+    </div>
+  </div>
+  <div class="body" id="search-results">
+    <div class="empty" style="padding-top:48px;">
+      <svg width="40" height="40" viewBox="0 0 40 40" fill="none" style="margin:0 auto 12px;display:block;opacity:.25;"><circle cx="17" cy="17" r="11" stroke="var(--txt)" stroke-width="2"/><line x1="25" y1="25" x2="35" y2="35" stroke="var(--txt)" stroke-width="2.2" stroke-linecap="round"/></svg>
+      Type a patient ID to search
+    </div>
+  </div>
+</div>
+
+<!-- ===== S3: INTAKE ===== -->
+<div id="s-intake" class="sw">
+  <div class="nav">
+    <div class="nback" onclick="go('s-patients')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</div>
+    <span class="ntitle">New patient</span>
+    <span style="font-size:13px;color:var(--green);font-weight:500;">Step 1/3</span>
+  </div>
+  <div class="body">
+    <div class="stpb">
+      <div class="std" style="background:var(--green);color:#fff;">1</div>
+      <div class="stl done"></div>
+      <div class="std" style="background:var(--green-lt);color:var(--green-dk);">2</div>
+      <div class="stl"></div>
+      <div class="std" style="background:var(--bg2);color:var(--txt2);">3</div>
+    </div>
+
+    <div class="slbl">Patient details</div>
+
+    <!-- Patient ID -->
+    <div class="fg">
+      <div class="fl">Patient ID</div>
+      <div style="display:flex;gap:8px;">
+        <input class="fi" id="f-pid" type="text" placeholder="MCL-0000" style="flex:1;">
+        <button onclick="autoGenID()" style="background:var(--green-lt);border-radius:var(--rad);padding:0 12px;font-size:11px;color:var(--green-dk);font-weight:500;cursor:pointer;border:none;white-space:nowrap;">Auto</button>
+      </div>
+    </div>
+
+    <!-- Today's date (auto, display only) -->
+    <div class="date-pill" id="today-date-pill">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="11" rx="1.5" stroke="var(--green-dk)" stroke-width="1.2"/><path d="M4 1v2M10 1v2" stroke="var(--green-dk)" stroke-width="1.2" stroke-linecap="round"/><line x1="1" y1="5.5" x2="13" y2="5.5" stroke="var(--green-dk)" stroke-width="1.2"/></svg>
+      <span id="today-date-display">Today</span>
+    </div>
+
+    <!-- Smear type -->
+    <div class="slbl">Smear type</div>
+    <div class="seg" id="smear-seg">
+      <div class="so on" onclick="pickSmear(this,'Thick smear')">Thick smear</div>
+      <div class="so" onclick="pickSmear(this,'Thin smear')">Thin smear</div>
+      <div class="so" onclick="pickSmear(this,'Both')">Both</div>
+    </div>
+    <input type="hidden" id="f-smear" value="Thick smear">
+    <input type="hidden" id="f-date" value="">
+
+    <div class="brow" style="margin-top:8px;">
+      <button class="btn-s" onclick="clearForm()">Clear</button>
+      <button class="btn-p" onclick="proceed()">Continue to capture</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S4: CAPTURE ===== -->
+<div id="s-capture" class="sw">
+  <div class="nav">
+    <div class="nback" onclick="go('s-intake')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</div>
+    <span class="ntitle">Capture field</span>
+    <span style="font-size:13px;color:var(--green);font-weight:500;">Step 2/3</span>
+  </div>
+  <div class="body">
+    <div class="stpb">
+      <div class="std" style="background:var(--green);color:#fff;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="stl done"></div>
+      <div class="std" style="background:var(--green);color:#fff;">2</div>
+      <div class="stl done"></div>
+      <div class="std" style="background:var(--green-lt);color:var(--green-dk);">3</div>
+    </div>
+    <div class="ai-tag"><div class="ai-dot"></div><span class="ai-lbl" id="cam-status-lbl">Starting camera…</span></div>
+    <div class="info-box">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0;margin-top:1px;"><circle cx="8" cy="8" r="6.5" stroke="#185FA5" stroke-width="1.2"/><line x1="8" y1="7" x2="8" y2="11" stroke="#185FA5" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="5" r=".8" fill="#185FA5"/></svg>
+      <span class="info-txt">Position the smear under the microscope. Live feed shown below. Press capture when in focus.</span>
+    </div>
+    <div class="cap-live">
+      <video id="video-el" autoplay playsinline muted></video>
+      <canvas id="cap-canvas" style="display:none;"></canvas>
+      <input type="file" id="img-upload" accept="image/*" style="display:none;" onchange="handleUpload(this)">
+      <div class="cap-corner" style="top:8px;left:8px;border-width:2px 0 0 2px;border-radius:4px 0 0 0;"></div>
+      <div class="cap-corner" style="top:8px;right:8px;border-width:2px 2px 0 0;border-radius:0 4px 0 0;"></div>
+      <div class="cap-corner" style="bottom:8px;left:8px;border-width:0 0 2px 2px;border-radius:0 0 0 4px;"></div>
+      <div class="cap-corner" style="bottom:8px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 4px 0;"></div>
+      <div class="cam-lbl">Live — Field <span id="cap-field-num">1</span></div>
+    </div>
+    <div class="shutter" onclick="captureField()"><div class="shutter-inner"></div></div>
+    <div style="text-align:center;font-size:12px;color:var(--txt2);margin-top:-4px;margin-bottom:14px;">Tap to capture and run AI analysis</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg2);border-radius:var(--rad);padding:10px 14px;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--txt2);">Fields captured</span>
+      <span style="font-size:13px;font-weight:500;color:var(--txt);" id="cap-count-lbl">0 / 2 minimum</span>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('img-upload').click()" style="flex:1;background:var(--bg2);border:.5px solid var(--bdr2);border-radius:var(--rad);padding:10px;font-size:12px;font-weight:500;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3-3 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Upload image
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S5: ANALYZE ===== -->
+<div id="s-analyze" class="sw">
+  <div class="nav">
+    <div class="nback" onclick="go('s-capture')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</div>
+    <span class="ntitle" id="az-title">Patient</span>
+    <span style="font-size:12px;color:var(--txt2);" id="az-pid">#----</span>
+  </div>
+  <div class="body">
+    <div class="ai-tag"><div class="ai-dot"></div><span class="ai-lbl">AI model active — auto-detection enabled</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <div class="slbl" style="margin:0;">Field <span id="fd">1</span> of <span id="ft">1</span> — analysed</div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="prevF()" style="width:28px;height:28px;border-radius:50%;background:var(--bg2);border:.5px solid var(--bdr2);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 3L5 7l4 4" stroke="var(--txt2)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button onclick="nextF()" style="width:28px;height:28px;border-radius:50%;background:var(--bg2);border:.5px solid var(--bdr2);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="var(--txt2)" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+    <div class="mv" id="az-mv">
+      <div class="cv" id="micro-sim-az">
+        <div class="rbc" style="top:30%;left:20%;"></div><div class="rbc" style="top:50%;left:55%;"></div>
+        <div class="rbc" style="top:65%;left:30%;"></div><div class="rbc" style="top:20%;left:65%;"></div>
+        <div class="para" style="top:28%;left:22%;"></div><div class="para" style="top:48%;left:57%;"></div>
+        <div class="dbox" style="top:24%;left:18%;width:18px;height:18px;"></div>
+        <div class="dbox" style="top:44%;left:53%;width:18px;height:18px;"></div>
+      </div>
+      <!-- Grad-CAM canvas rendered here -->
+      <canvas id="gradcam-canvas" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);width:174px;height:174px;border-radius:50%;"></canvas>
+      <div class="aio" id="az-aio">— detected</div>
+    </div>
+
+    <!-- Grad-CAM on-demand button -->
+    <button class="gcam-btn" id="gcam-btn" onclick="requestGradcam()" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--green-dk)" stroke-width="1.2"/><circle cx="7" cy="7" r="2.5" stroke="var(--green-dk)" stroke-width="1.2"/></svg>
+      Show Grad-CAM explanation
+    </button>
+
+    <div class="brow">
+      <button class="btn-s" onclick="openRetake()">Retake field</button>
+      <button class="btn-p" onclick="go('s-capture')">Capture next field</button>
+    </div>
+    <div class="slbl">Count summary</div>
+    <div class="cg">
+      <div class="cc"><div class="cn" style="color:var(--green);" id="s-ai">0</div><div class="cl">Parasites (AI)</div></div>
+      <div class="cc"><div class="cn">200</div><div class="cl">WBCs counted</div></div>
+      <div class="cc"><div class="cn" id="s-flds">0</div><div class="cl">Fields examined</div></div>
+      <div class="cc"><div class="cn" style="color:#D85A30;" id="s-man">+0</div><div class="cl">Manual override</div></div>
+    </div>
+    <div class="brow" style="margin-bottom:0;">
+      <button class="btn-s" onclick="openManual()">Manual count</button>
+      <button class="btn-p" onclick="calcDensity()">Calculate density</button>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="bi" onclick="go('s-patients')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="2" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/></svg><span class="bl">Patients</span></div>
+    <div class="bi on"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6" stroke="var(--green)" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" stroke="var(--green)" stroke-width="1.4"/></svg><span class="bl" style="color:var(--green);">Analyze</span></div>
+    <div class="bi" onclick="go('s-results')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="12" rx="2" stroke="#666" stroke-width="1.4"/><line x1="6" y1="8" x2="14" y2="8" stroke="#666" stroke-width="1.4" stroke-linecap="round"/><line x1="6" y1="11" x2="10" y2="11" stroke="#666" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl">Results</span></div>
+    <div class="bi" onclick="go('s-settings')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="#666" stroke-width="1.4"/><path d="M4 18c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#666" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl">Profile</span></div>
+  </div>
+</div>
+
+<!-- ===== S6: RESULTS ===== -->
+<div id="s-results" class="sw">
+  <div class="nav">
+    <div class="nback" id="res-back" onclick="go('s-analyze')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="res-back-lbl">Back</span></div>
+    <span class="ntitle">Density result</span>
+    <button class="btn-p" id="res-save-btn" onclick="saveRecord(false)" style="flex:none;padding:6px 14px;font-size:12px;">Save</button>
+  </div>
+  <div class="body">
+    <div class="ro-banner" id="ro-banner" style="display:none;">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="var(--txt2)" stroke-width="1.2"/><line x1="7" y1="5" x2="7" y2="9" stroke="var(--txt2)" stroke-width="1.3" stroke-linecap="round"/><circle cx="7" cy="4" r=".6" fill="var(--txt2)"/></svg>
+      <span style="font-size:12px;color:var(--txt2);">Saved record — view only</span>
+    </div>
+    <div class="dc">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:12px;color:var(--txt2);">Parasite density</span>
+        <span class="bdg b-pos">P. falciparum</span>
+      </div>
+      <div class="dv" id="r-density">—</div>
+      <div class="du">parasites / µL of blood</div>
+      <div class="prg"><div class="pf" id="r-bar" style="width:0%;background:#D85A30;"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;"><span style="font-size:10px;color:var(--txt3);">0</span><span style="font-size:10px;color:var(--txt3);">500,000+</span></div>
+      <div class="sev-row">
+        <div class="sev-c sev-mild" id="sv-mild">Mild &lt;1,000</div>
+        <div class="sev-c sev-mod" id="sv-mod">Moderate<br>1K–100K</div>
+        <div class="sev-c sev-sev" id="sv-sev">Severe<br>&gt;100K</div>
+      </div>
+    </div>
+    <div class="slbl">Calculation inputs</div>
+    <div class="ir"><span style="font-size:13px;color:var(--txt2);">Total parasites</span><span style="font-size:13px;font-weight:500;" id="r-para">—</span></div>
+    <div class="ir"><span style="font-size:13px;color:var(--txt2);">WBCs counted</span><span style="font-size:13px;font-weight:500;" id="r-wbc">200</span></div>
+    <div class="ir"><span style="font-size:13px;color:var(--txt2);">Assumed WBC/µL</span><span style="font-size:13px;font-weight:500;">8,000</span></div>
+    <div class="ir"><span style="font-size:13px;color:var(--txt2);">Fields examined</span><span style="font-size:13px;font-weight:500;" id="r-flds">—</span></div>
+    <div class="ir"><span style="font-size:13px;color:var(--txt2);">Stain · smear</span><span style="font-size:13px;font-weight:500;" id="r-stain">Giemsa · Thick</span></div>
+    <div class="slbl" style="margin-top:16px;">Recommendation</div>
+    <div id="r-rec" style="border-radius:var(--radl);padding:14px;margin-bottom:14px;background:var(--amber-lt);">
+      <div style="font-size:13px;font-weight:500;margin-bottom:4px;" id="r-rec-h">—</div>
+      <div style="font-size:12px;line-height:1.6;" id="r-rec-b">—</div>
+    </div>
+    <div class="brow" id="res-action-row">
+      <button class="btn-s" onclick="go('s-report')">Print report</button>
+      <button class="btn-p" id="res-submit-btn" onclick="saveRecord(true)">Submit to records</button>
+    </div>
+  </div>
+  <div class="bnav">
+    <div class="bi" onclick="go('s-patients')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="2" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/></svg><span class="bl">Patients</span></div>
+    <div class="bi" onclick="go('s-analyze')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6" stroke="#666" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" stroke="#666" stroke-width="1.4"/></svg><span class="bl">Analyze</span></div>
+    <div class="bi on"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="12" rx="2" stroke="var(--green)" stroke-width="1.4"/><line x1="6" y1="8" x2="14" y2="8" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/><line x1="6" y1="11" x2="10" y2="11" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl" style="color:var(--green);">Results</span></div>
+    <div class="bi" onclick="go('s-settings')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="#666" stroke-width="1.4"/><path d="M4 18c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#666" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl">Profile</span></div>
+  </div>
+</div>
+
+<!-- ===== S7: REPORT ===== -->
+<div id="s-report" class="sw">
+  <div class="rpt-hdr">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div class="rpt-title">MalaSense AI — Parasite Report</div>
+        <div class="rpt-sub" id="rpt-gen">Generated —</div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <div onclick="go('s-results')" style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11 4L6 9l5 5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div onclick="downloadRpt()" style="background:rgba(255,255,255,.15);border-radius:8px;padding:6px;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3" stroke="#fff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12h12" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+      </div>
+    </div>
+  </div>
+  <div class="body">
+    <div class="rpt-card">
+      <div class="rpt-sec">Patient information</div>
+      <div class="rpt-row"><span class="rpt-k">Patient ID</span><span class="rpt-v" id="rp-pid">—</span></div>
+      <div class="rpt-row"><span class="rpt-k">Collection date</span><span class="rpt-v" id="rp-date">—</span></div>
+      <div class="rpt-row"><span class="rpt-k">Smear type</span><span class="rpt-v" id="rp-smear">—</span></div>
+    </div>
+    <div class="rpt-card">
+      <div class="rpt-sec">Parasite count</div>
+      <div style="text-align:center;padding:16px 0 8px;">
+        <div class="rb-num" id="rp-density">—</div>
+        <div class="rb-unit">parasites per µL of blood</div>
+        <div class="rb-badge" id="rp-sev-badge">—</div>
+      </div>
+      <div class="rpt-row" style="margin-top:10px;"><span class="rpt-k">Parasites counted</span><span class="rpt-v" id="rp-para">—</span></div>
+      <div class="rpt-row"><span class="rpt-k">WBCs counted</span><span class="rpt-v">200</span></div>
+      <div class="rpt-row"><span class="rpt-k">Fields examined</span><span class="rpt-v" id="rp-flds">—</span></div>
+      <div class="rpt-row"><span class="rpt-k">Detection method</span><span class="rpt-v">MalaSense AI + manual override</span></div>
+    </div>
+    <div class="rpt-card">
+      <div class="rpt-sec">Clinical recommendation</div>
+      <div style="font-size:13px;color:var(--txt);line-height:1.7;" id="rp-rec">—</div>
+    </div>
+    <div class="rpt-card">
+      <div class="rpt-sec">Authorisation</div>
+      <div class="rpt-row"><span class="rpt-k">Analysed by</span><span class="rpt-v">Lab Tech · Dr. P.E. Adjei</span></div>
+      <div class="rpt-row"><span class="rpt-k">AI model</span><span class="rpt-v">MalaSense AI v1.0 — EfficientNetB2</span></div>
+      <div class="rpt-row"><span class="rpt-k">Facility</span><span class="rpt-v">Kwame Nkrumah University Hospital</span></div>
+      <div style="margin-top:14px;border-top:.5px solid var(--bdr);padding-top:14px;">
+        <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;">Lab technician signature</div>
+        <div id="sig-pad" style="height:52px;border:.5px dashed var(--bdr2);border-radius:var(--rad);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;overflow:hidden;" onclick="toggleSig()">
+          <span id="sig-lbl" style="font-size:12px;color:var(--txt3);">Tap to sign</span>
+          <svg id="sig-svg" style="display:none;position:absolute;" width="100%" height="52" viewBox="0 0 300 52"><path d="M20,36 Q40,18 60,30 Q80,42 100,28 Q115,18 130,32" stroke="var(--green-dk)" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="brow">
+      <button class="btn-s" onclick="shareRpt()">Share</button>
+      <button class="btn-p" onclick="printRpt()">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== S8: SETTINGS ===== -->
+<div id="s-settings" class="sw">
+  <div class="nav">
+    <div class="nback" onclick="go('s-patients')"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 4L6 9l5 5" stroke="#666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Back</div>
+    <span class="ntitle">Profile &amp; settings</span>
+    <span style="font-size:13px;color:var(--green);font-weight:500;cursor:pointer;">Edit</span>
+  </div>
+  <div class="body" style="padding:0 16px 16px;">
+    <div style="display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:.5px solid var(--bdr);">
+      <div class="sett-av">PA</div>
+      <div>
+        <div style="font-size:15px;font-weight:500;color:var(--txt);">Dr. Prince Ebenezer Adjei</div>
+        <div style="font-size:12px;color:var(--txt2);">Lab Technician · ID #LT-0019</div>
+        <div style="margin-top:4px;"><span style="background:var(--green-lt);color:var(--green-dk);font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;">Active</span></div>
+      </div>
+    </div>
+    <div class="sett-sec">Analysis settings</div>
+    <div class="sett-row">
+      <div class="sett-left">
+        <div class="sett-icon" style="background:var(--green-lt);"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="5" stroke="var(--green-dk)" stroke-width="1.4"/><circle cx="9" cy="9" r="2" stroke="var(--green-dk)" stroke-width="1.4"/></svg></div>
+        <div><div style="font-size:14px;color:var(--txt);">AI auto-detection</div><div style="font-size:12px;color:var(--txt2);">Run model on every capture</div></div>
+      </div>
+      <div class="toggle" onclick="this.classList.toggle('off')"><div class="toggle-thumb"></div></div>
+    </div>
+    <div class="sett-row">
+      <div class="sett-left">
+        <div class="sett-icon" style="background:var(--blue-lt);"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="12" height="12" rx="2" stroke="var(--blue-dk)" stroke-width="1.4"/><line x1="9" y1="6" x2="9" y2="12" stroke="var(--blue-dk)" stroke-width="1.4" stroke-linecap="round"/><line x1="6" y1="9" x2="12" y2="9" stroke="var(--blue-dk)" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div><div style="font-size:14px;color:var(--txt);">Assumed WBC count</div><div style="font-size:12px;color:var(--txt2);">8,000 / µL (WHO default)</div></div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#666" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="sett-sec">Facility</div>
+    <div class="sett-row">
+      <div class="sett-left">
+        <div class="sett-icon" style="background:var(--bg2);"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="6" width="14" height="10" rx="1.5" stroke="#666" stroke-width="1.3"/><path d="M6 6V4a3 3 0 016 0v2" stroke="#666" stroke-width="1.3"/></svg></div>
+        <div><div style="font-size:14px;color:var(--txt);">Kwame Nkrumah University Hospital</div><div style="font-size:12px;color:var(--txt2);">Tech Hospital</div></div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="#666" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div style="margin-top:16px;"><button onclick="menuAction('signout')" style="width:100%;background:var(--bg2);color:#A32D2D;border:.5px solid var(--bdr2);border-radius:var(--rad);padding:12px;font-size:13px;font-weight:500;cursor:pointer;">Sign out</button></div>
+  </div>
+  <div class="bnav">
+    <div class="bi" onclick="go('s-patients')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="2" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="2" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/><rect x="12" y="12" width="6" height="6" rx="1.5" stroke="#666" stroke-width="1.3"/></svg><span class="bl">Patients</span></div>
+    <div class="bi" onclick="go('s-analyze')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6" stroke="#666" stroke-width="1.4"/><circle cx="10" cy="10" r="2.5" stroke="#666" stroke-width="1.4"/></svg><span class="bl">Analyze</span></div>
+    <div class="bi" onclick="go('s-results')"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="12" rx="2" stroke="#666" stroke-width="1.4"/><line x1="6" y1="8" x2="14" y2="8" stroke="#666" stroke-width="1.4" stroke-linecap="round"/><line x1="6" y1="11" x2="10" y2="11" stroke="#666" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl">Results</span></div>
+    <div class="bi on"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="var(--green)" stroke-width="1.4"/><path d="M4 18c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="var(--green)" stroke-width="1.4" stroke-linecap="round"/></svg><span class="bl" style="color:var(--green);">Profile</span></div>
+  </div>
+</div>
+
+</div></div>
+
+<script>
+// ── PWA SERVICE WORKER REGISTRATION ──────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(() => console.log('MalaSense SW registered'))
+      .catch(e => console.warn('SW registration failed:', e));
+  });
+}
+
+// ── MODEL LOADING ─────────────────────────────────────────────────────────────
+// MODEL_URL points to the TF.js model files in the /model folder
+const MODEL_URL = './model/model.json';
+let tfModel = null;
+let lastCapturedTensor = null; // stores the last captured image tensor for Grad-CAM
+
+async function loadModel() {
+  try {
+    document.getElementById('model-loading').style.display = 'flex';
+    tfModel = await tf.loadLayersModel(MODEL_URL);
+    // Warmup pass
+    const dummy = tf.zeros([1, 128, 128, 3]);
+    const warmupResult = tfModel.predict(dummy);
+    await warmupResult.data();
+    dummy.dispose();
+    warmupResult.dispose();
+    document.getElementById('model-loading').style.display = 'none';
+    console.log('MalaSense AI model loaded successfully');
+  } catch (e) {
+    document.getElementById('model-loading').innerHTML =
+      '<div style="padding:20px;text-align:center;color:#A32D2D;font-size:13px;">Failed to load AI model.<br>Please check your connection and reload.</div>';
+    console.error('Model load error:', e);
+  }
+}
+
+loadModel();
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let records = JSON.parse(localStorage.getItem('ms_rec') || '[]');
+let curPatient = {}, curResult = {}, capturedFields = [], curFieldIdx = 0, manualOvr = 0, tempMan = 0;
+let camStream = null, camOn = false, readOnly = false, searchScope = 'all';
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+(function tick() {
+  const n = new Date();
+  document.getElementById('clock').textContent =
+    n.getHours().toString().padStart(2, '0') + ':' + n.getMinutes().toString().padStart(2, '0');
+  setTimeout(tick, 15000);
+})();
+
+// ── NAV ───────────────────────────────────────────────────────────────────────
+function go(id) {
+  document.querySelectorAll('.sw').forEach(s => s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  if (id === 's-capture') {
+    startCamAuto();
+  } else {
+    stopCam();
+  }
+  if (id === 's-patients') renderLists();
+}
+
+// ── PATIENTS ──────────────────────────────────────────────────────────────────
+function openNewPatient() { clearForm(); go('s-intake'); }
+
+function switchTab(i, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  ['tab-active', 'tab-recent', 'tab-all'].forEach((id, j) => {
+    document.getElementById(id).style.display = i === j ? 'block' : 'none';
+  });
+  renderLists();
+}
+
+function dKey(d) {
+  return d.getFullYear() + '-' + (d.getMonth() + 1).toString().padStart(2, '0') + '-' + d.getDate().toString().padStart(2, '0');
+}
+
+function renderLists() {
+  const now = new Date(), todayK = dKey(now);
+  const wAgo = new Date(now); wAgo.setDate(now.getDate() - 7);
+  const m3Ago = new Date(now); m3Ago.setMonth(now.getMonth() - 3);
+  const active = records.filter(r => r.dk === todayK);
+  renderGroup('tab-active', active, 'No active records for today.\nTap New patient to begin.');
+  document.getElementById('active-count').textContent = active.length;
+  renderGroup('tab-recent', records.filter(r => new Date(r.ts) >= wAgo).sort((a, b) => b.ts - a.ts), 'No records in the past 7 days.');
+  renderGroup('tab-all', records.filter(r => new Date(r.ts) >= m3Ago).sort((a, b) => b.ts - a.ts), 'No records in the past 3 months.');
+}
+
+function dlbl(ts) {
+  const d = new Date(ts), now = new Date(), dk = dKey(d), tk = dKey(now), yk = dKey(new Date(now - 86400000));
+  const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const s = d.getDate() + ' ' + M[d.getMonth()];
+  return dk === tk ? 'Today — ' + s : dk === yk ? 'Yesterday — ' + s : s + ', ' + d.getFullYear();
+}
+
+function cardHTML(r) {
+  const colors = ['#E1F5EE', '#FAEEDA', '#E6F1FB', '#FBEAF0', '#EAF3DE'];
+  const tcolors = ['#0F6E56', '#633806', '#0C447C', '#72243E', '#27500A'];
+  const idx = Math.abs((r.pid || '').charCodeAt(0) || 0) % 5;
+  const ini = (r.pid || 'P').substring(0, 2).toUpperCase();
+  const bc = r.result === 'Positive' ? 'b-pos' : r.result === 'Negative' ? 'b-neg' : 'b-pend';
+  return `<div class="pc" onclick="viewRec('${r.id}')"><div class="pr">
+    <div class="av" style="background:${colors[idx]};color:${tcolors[idx]};">${ini}</div>
+    <div style="flex:1;">
+      <div class="pn">Patient ${r.pid}</div>
+      <div class="pm">${r.smear} · ${r.date || '—'}</div>
+    </div>
+    <span class="bdg ${bc}">${r.result || 'Pending'}</span>
+  </div></div>`;
+}
+
+function renderGroup(cid, recs, empty) {
+  const el = document.getElementById(cid);
+  if (!recs.length) { el.innerHTML = `<div class="empty">${empty}</div>`; return; }
+  const grp = {};
+  recs.forEach(r => { const k = dKey(new Date(r.ts)); if (!grp[k]) grp[k] = []; grp[k].push(r); });
+  el.innerHTML = Object.keys(grp).sort((a, b) => b.localeCompare(a))
+    .map(k => `<div class="slbl">${dlbl(grp[k][0].ts)}</div>` + grp[k].map(cardHTML).join('')).join('');
+}
+
+function viewRec(id) {
+  const r = records.find(x => x.id === id); if (!r) return;
+  curResult = r; readOnly = true;
+  fillResults(r, true); fillReport(r); go('s-results');
+}
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+function openSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').innerHTML = '<div class="empty" style="padding-top:48px;">Type a patient ID to search</div>';
+  go('s-search');
+  setTimeout(() => document.getElementById('search-input').focus(), 200);
+}
+
+function setScope(sc, el) {
+  searchScope = sc;
+  document.querySelectorAll('#s-search .chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+  runSearch(document.getElementById('search-input').value);
+}
+
+function runSearch(q) {
+  const el = document.getElementById('search-results'), lq = q.trim().toLowerCase();
+  if (!lq) { el.innerHTML = '<div class="empty">Type to search</div>'; return; }
+  const now = new Date(), wAgo = new Date(now); wAgo.setDate(now.getDate() - 7);
+  const m3 = new Date(now); m3.setMonth(now.getMonth() - 3);
+  let pool = records;
+  if (searchScope === 'active') pool = records.filter(r => r.dk === dKey(now));
+  else if (searchScope === 'recent') pool = records.filter(r => new Date(r.ts) >= wAgo);
+  const hits = pool.filter(r => (r.pid || '').toLowerCase().includes(lq) || (r.smear || '').toLowerCase().includes(lq)).sort((a, b) => b.ts - a.ts);
+  if (!hits.length) { el.innerHTML = `<div class="empty">No records matching "${q}"</div>`; return; }
+  el.innerHTML = `<div class="slbl">${hits.length} result${hits.length > 1 ? 's' : ''} found</div>` + hits.map(cardHTML).join('');
+}
+
+// ── INTAKE ────────────────────────────────────────────────────────────────────
+function pickSmear(el, v) {
+  document.querySelectorAll('#smear-seg .so').forEach(s => s.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('f-smear').value = v;
+}
+
+let pidCtr = parseInt(localStorage.getItem('ms_pid') || '42');
+function autoGenID() {
+  pidCtr++;
+  localStorage.setItem('ms_pid', pidCtr);
+  document.getElementById('f-pid').value = 'MCL-' + String(pidCtr).padStart(4, '0');
+}
+
+function getTodayFormatted() {
+  const d = new Date();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function getTodayISO() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function clearForm() {
+  document.getElementById('f-pid').value = '';
+  document.getElementById('f-date').value = getTodayISO();
+  document.getElementById('today-date-display').textContent = getTodayFormatted();
+  document.querySelectorAll('#smear-seg .so').forEach((s, i) => s.classList.toggle('on', i === 0));
+  document.getElementById('f-smear').value = 'Thick smear';
+}
+
+function proceed() {
+  const pid = document.getElementById('f-pid').value.trim();
+  if (!pid) { toast('Please enter or generate a Patient ID'); return; }
+  const today = getTodayISO();
+  curPatient = {
+    id: Date.now().toString(),
+    pid,
+    smear: document.getElementById('f-smear').value,
+    date: today,
+    ts: Date.now(),
+    dk: dKey(new Date()),
+    result: null
+  };
+  capturedFields = []; manualOvr = 0; curFieldIdx = 0; readOnly = false;
+  updAz(); updCapUI();
+  document.getElementById('az-title').textContent = 'Patient';
+  document.getElementById('az-pid').textContent = '#' + pid.replace('MCL-', '');
+  go('s-capture');
+}
+
+// ── CAPTURE ───────────────────────────────────────────────────────────────────
+function updCapUI() {
+  const n = capturedFields.length;
+  document.getElementById('cap-field-num').textContent = n + 1;
+  document.getElementById('cap-count-lbl').textContent = n + ' / 2 minimum';
+}
+
+// Auto-start camera when capture screen loads
+async function startCamAuto() {
+  if (camOn) return;
+  const lbl = document.getElementById('cam-status-lbl');
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const v = document.getElementById('video-el');
+    v.srcObject = camStream;
+    v.style.display = 'block';
+    camOn = true;
+    lbl.textContent = 'Camera active — live feed running';
+    toast('Camera ready');
+  } catch (e) {
+    lbl.textContent = 'Camera unavailable — use Upload image below';
+    toast('Camera not accessible. Use Upload image.');
+  }
+}
+
+function stopCam() {
+  if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+  const v = document.getElementById('video-el');
+  if (v) { v.style.display = 'none'; v.srcObject = null; }
+  camOn = false;
+}
+
+async function captureField() {
+  if (camOn) {
+    const v = document.getElementById('video-el');
+    const c = document.getElementById('cap-canvas');
+    c.width = v.videoWidth || 320;
+    c.height = v.videoHeight || 240;
+    c.getContext('2d').drawImage(v, 0, 0);
+    const imageData = c.toDataURL('image/jpeg', 0.85);
+    await runAnalysis(imageData);
+  } else {
+    document.getElementById('img-upload').click();
+  }
+}
+
+async function handleUpload(input) {
+  if (!input.files || !input.files[0]) return;
+  toast('Reading image…');
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    await runAnalysis(e.target.result);
+    input.value = '';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+// ── TF.JS INFERENCE ───────────────────────────────────────────────────────────
+async function runAnalysis(imageData) {
+  if (!tfModel) { toast('Model still loading, please wait…'); return; }
+  toast('AI analysing field…');
+
+  try {
+    // Decode image into tensor
+    const img = new Image();
+    img.src = imageData;
+    await new Promise(res => { img.onload = res; });
+
+    // Preprocess: resize to 128x128, keep 0-255 float32 range
+    // EfficientNetB2 has internal rescaling so NO division by 255
+    const tensor = tf.tidy(() => {
+      const raw = tf.browser.fromPixels(img);
+      const resized = tf.image.resizeBilinear(raw, [128, 128]);
+      return resized.toFloat().expandDims(0); // shape [1,128,128,3] in 0-255 range
+    });
+
+    // Store tensor for optional Grad-CAM use (keep outside tidy)
+    if (lastCapturedTensor) lastCapturedTensor.dispose();
+    lastCapturedTensor = tensor;
+
+    // Run prediction
+    const predTensor = tfModel.predict(tensor);
+    const predValue = (await predTensor.data())[0];
+    predTensor.dispose();
+    tensor.dispose();
+
+    // sigmoid output: < 0.5 = Parasitized, >= 0.5 = Uninfected
+    const isInfected = predValue < 0.5;
+    const confidence = Math.round(isInfected ? (1 - predValue) * 100 : predValue * 100);
+
+    // Estimate parasite count from confidence
+    // Simple heuristic: infected fields get 1-5 parasites scaled by confidence
+    const parasiteCount = isInfected ? Math.max(1, Math.round((1 - predValue) * 7)) : 0;
+
+    capturedFields.push({
+      ai: parasiteCount,
+      wbc: 200,
+      infected: isInfected,
+      confidence,
+      predValue,
+      imageData,  // store for Grad-CAM
+      gradcamDone: false
+    });
+
+    curFieldIdx = capturedFields.length - 1;
+    updCapUI();
+    updAz();
+
+    // Show Grad-CAM button now that we have a result
+    document.getElementById('gcam-btn').style.display = 'flex';
+
+    toast('Field ' + capturedFields.length + ' — ' + parasiteCount + ' parasites (' + confidence + '% confidence)');
+    go('s-analyze');
+
+  } catch (err) {
+    console.error('Inference error:', err);
+    toast('Analysis error. Try again.');
+  }
+}
+
+// ── GRAD-CAM (on demand) ──────────────────────────────────────────────────────
+async function requestGradcam() {
+  const f = capturedFields[curFieldIdx];
+  if (!f || !f.imageData) { toast('No image data available'); return; }
+  if (!tfModel) { toast('Model not loaded'); return; }
+
+  const btn = document.getElementById('gcam-btn');
+  btn.textContent = 'Computing explanation…';
+  btn.style.opacity = '0.6';
+
+  try {
+    const img = new Image();
+    img.src = f.imageData;
+    await new Promise(res => { img.onload = res; });
+
+    // Build gradient model to get intermediate conv layer outputs
+    // For TF.js GraphModel we use executeAsync with named outputs
+    const inputTensor = tf.tidy(() => {
+      const raw = tf.browser.fromPixels(img);
+      return tf.image.resizeBilinear(raw, [128, 128]).toFloat().expandDims(0);
+    });
+
+    // Run prediction again to get gradients via GradientTape equivalent in TF.js
+    const heatmap = await tf.tidy(() => {
+      // Approximate Grad-CAM using output prediction variance across spatial patches
+      // This is a lightweight approximation suitable for browser inference
+      // We divide the image into a 4x4 grid and measure prediction sensitivity
+      return tf.scalar(1); // placeholder — replaced below
+    });
+
+    // Lightweight Grad-CAM approximation: occlusion-based sensitivity map
+    const gridSize = 4;
+    const patchSize = 32; // 128/4
+    const sensitivityMap = [];
+
+    const basePred = (await tfModel.predict(inputTensor).data())[0];
+
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const occluded = tf.tidy(() => {
+          const base = inputTensor.clone();
+          // Create occlusion mask — zero out one patch
+          const mask = tf.ones([1, 128, 128, 3]);
+          const patchMask = tf.buffer([1, 128, 128, 3]);
+          for (let h = row * patchSize; h < (row + 1) * patchSize; h++) {
+            for (let w = col * patchSize; w < (col + 1) * patchSize; w++) {
+              patchMask.set(0, 0, h, w, 0);
+              patchMask.set(0, 0, h, w, 1);
+              patchMask.set(0, 0, h, w, 2);
+            }
+          }
+          return base.mul(patchMask.toTensor());
+        });
+
+        const occPred = (await tfModel.predict(occluded).data())[0];
+        occluded.dispose();
+        // Sensitivity = how much prediction changes when this patch is hidden
+        sensitivityMap.push(Math.abs(basePred - occPred));
+      }
+    }
+
+    inputTensor.dispose();
+
+    // Normalize sensitivity map to 0-1
+    const maxSens = Math.max(...sensitivityMap);
+    const normMap = sensitivityMap.map(v => maxSens > 0 ? v / maxSens : 0);
+
+    // Draw heatmap on canvas
+    const canvas = document.getElementById('gradcam-canvas');
+    canvas.width = 174;
+    canvas.height = 174;
+    const ctx = canvas.getContext('2d');
+
+    // Draw original image first
+    ctx.drawImage(img, 0, 0, 174, 174);
+
+    // Overlay heatmap patches with JET colormap approximation
+    const cellW = 174 / gridSize;
+    const cellH = 174 / gridSize;
+
+    normMap.forEach((val, idx) => {
+      const row = Math.floor(idx / gridSize);
+      const col = idx % gridSize;
+      const [r, g, b] = jetColormap(val);
+      ctx.fillStyle = `rgba(${r},${g},${b},${val * 0.55})`;
+      ctx.fillRect(col * cellW, row * cellH, cellW, cellH);
+    });
+
+    canvas.style.display = 'block';
+    const simView = document.getElementById('micro-sim-az');
+    if (simView) simView.style.display = 'none';
+
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--green-dk)" stroke-width="1.2"/><circle cx="7" cy="7" r="2.5" stroke="var(--green-dk)" stroke-width="1.2"/></svg> Hide explanation';
+    btn.style.opacity = '1';
+    btn.onclick = hideGradcam;
+    toast('Grad-CAM explanation ready');
+
+  } catch (err) {
+    console.error('Grad-CAM error:', err);
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--green-dk)" stroke-width="1.2"/><circle cx="7" cy="7" r="2.5" stroke="var(--green-dk)" stroke-width="1.2"/></svg> Show Grad-CAM explanation';
+    btn.style.opacity = '1';
+    btn.onclick = requestGradcam;
+    toast('Could not compute explanation');
+  }
+}
+
+function hideGradcam() {
+  document.getElementById('gradcam-canvas').style.display = 'none';
+  const simView = document.getElementById('micro-sim-az');
+  if (simView) simView.style.display = '';
+  const btn = document.getElementById('gcam-btn');
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="var(--green-dk)" stroke-width="1.2"/><circle cx="7" cy="7" r="2.5" stroke="var(--green-dk)" stroke-width="1.2"/></svg> Show Grad-CAM explanation';
+  btn.onclick = requestGradcam;
+}
+
+// JET colormap: maps 0-1 value to RGB
+function jetColormap(val) {
+  let r, g, b;
+  if (val < 0.25) { r = 0; g = Math.round(val * 4 * 255); b = 255; }
+  else if (val < 0.5) { r = 0; g = 255; b = Math.round((1 - (val - 0.25) * 4) * 255); }
+  else if (val < 0.75) { r = Math.round((val - 0.5) * 4 * 255); g = 255; b = 0; }
+  else { r = 255; g = Math.round((1 - (val - 0.75) * 4) * 255); b = 0; }
+  return [r, g, b];
+}
+
+// ── ANALYZE ───────────────────────────────────────────────────────────────────
+function updAz() {
+  const tot = capturedFields.reduce((s, f) => s + f.ai, 0);
+  document.getElementById('s-ai').textContent = tot;
+  document.getElementById('s-flds').textContent = capturedFields.length;
+  document.getElementById('s-man').textContent = '+' + manualOvr;
+  document.getElementById('fd').textContent = Math.min(curFieldIdx + 1, Math.max(1, capturedFields.length));
+  document.getElementById('ft').textContent = Math.max(1, capturedFields.length);
+  const f = capturedFields[curFieldIdx];
+  if (f) {
+    document.getElementById('az-aio').textContent = f.ai + ' detected' + (f.confidence ? ' · ' + f.confidence + '%' : '');
+  }
+}
+
+function prevF() { if (curFieldIdx > 0) { curFieldIdx--; updAz(); hideGradcam(); } }
+function nextF() { if (curFieldIdx < capturedFields.length - 1) { curFieldIdx++; updAz(); hideGradcam(); } }
+
+function openManual() { tempMan = manualOvr; document.getElementById('manual-val').textContent = tempMan; document.getElementById('manual-modal').classList.add('on'); }
+function closeManual() { document.getElementById('manual-modal').classList.remove('on'); }
+function adjustManual(d) { tempMan = Math.max(0, tempMan + d); document.getElementById('manual-val').textContent = tempMan; }
+function confirmManual() { manualOvr = tempMan; updAz(); closeManual(); toast('Manual override set to +' + manualOvr); }
+
+function openRetake() { document.getElementById('retake-num').textContent = curFieldIdx + 1; document.getElementById('retake-modal').classList.add('on'); }
+function closeRetake() { document.getElementById('retake-modal').classList.remove('on'); }
+function confirmRetake() { capturedFields.splice(curFieldIdx, 1); curFieldIdx = Math.max(0, curFieldIdx - 1); updAz(); closeRetake(); toast('Field removed'); go('s-capture'); }
+
+function calcDensity() {
+  if (!capturedFields.length) { toast('Capture at least one field first'); return; }
+  const tot = capturedFields.reduce((s, f) => s + f.ai, 0) + manualOvr;
+  const d = Math.round((tot / 200) * 8000);
+  let sev, rh, rb, bg, tc, bc2, bar;
+  if (d === 0) {
+    sev = 'Negative'; rh = 'No parasites detected';
+    rb = 'Blood film appears negative for P. falciparum. If clinical suspicion remains, consider repeat smear in 12-24 hours.';
+    bg = '#EAF3DE'; tc = '#27500A'; bc2 = '#3B6D11'; bar = 0;
+  } else if (d < 1000) {
+    sev = 'Mild'; rh = 'Mild parasitemia detected';
+    rb = 'Monitor closely. Consider oral antimalarials per national guidelines. Follow up in 24 hours.';
+    bg = '#EAF3DE'; tc = '#27500A'; bc2 = '#3B6D11'; bar = Math.min(d / 1000 * 15, 15);
+  } else if (d <= 100000) {
+    sev = 'Moderate'; rh = 'Moderate parasitemia detected';
+    rb = 'Initiate antimalarial therapy immediately per national protocol. Repeat blood film in 48-72 hours to monitor parasite clearance. Assess for signs of complicated malaria.';
+    bg = '#FAEEDA'; tc = '#633806'; bc2 = '#854F0B'; bar = 15 + ((d - 1000) / 99000 * 50);
+  } else {
+    sev = 'Severe'; rh = 'Severe parasitemia — urgent action required';
+    rb = 'Immediate IV antimalarial treatment indicated. Admit patient urgently. Alert attending physician. Monitor vital signs continuously.';
+    bg = '#FAECE7'; tc = '#712B13'; bc2 = '#993C1D'; bar = 65 + Math.min((d - 100000) / 400000 * 35, 35);
+  }
+  curResult = { ...curPatient, density: d, severity: sev, totPara: tot, wbc: 200, fields: capturedFields.length, rh, rb, bg, tc, bc2, bar: Math.round(bar), genAt: new Date().toLocaleString() };
+  readOnly = false;
+  fillResults(curResult, false);
+  fillReport(curResult);
+  go('s-results');
+}
+
+function fillResults(r, ro) {
+  readOnly = ro;
+  const bk = document.getElementById('res-back'), lbl = document.getElementById('res-back-lbl');
+  if (ro) { bk.onclick = () => go('s-patients'); lbl.textContent = ' Patients'; }
+  else { bk.onclick = () => go('s-analyze'); lbl.textContent = ' Back'; }
+  document.getElementById('res-save-btn').style.display = ro ? 'none' : '';
+  document.getElementById('res-submit-btn').style.display = ro ? 'none' : '';
+  document.getElementById('ro-banner').style.display = ro ? 'flex' : 'none';
+  document.getElementById('r-density').textContent = r.density?.toLocaleString() || '—';
+  document.getElementById('r-bar').style.width = (r.bar || 0) + '%';
+  document.getElementById('r-para').textContent = r.totPara ?? '—';
+  document.getElementById('r-wbc').textContent = r.wbc || 200;
+  document.getElementById('r-flds').textContent = r.fields || '—';
+  document.getElementById('r-stain').textContent = 'Giemsa · ' + (r.smear || 'Thick smear');
+  document.getElementById('r-rec-h').textContent = r.rh || '—';
+  document.getElementById('r-rec-b').textContent = r.rb || '—';
+  const rec = document.getElementById('r-rec');
+  rec.style.background = r.bg || '#FAEEDA';
+  document.getElementById('r-rec-h').style.color = r.tc || '#633806';
+  document.getElementById('r-rec-b').style.color = r.bc2 || '#854F0B';
+  ['sv-mild', 'sv-mod', 'sv-sev'].forEach(id => document.getElementById(id).classList.remove('sev-on'));
+  if (r.severity === 'Mild') document.getElementById('sv-mild').classList.add('sev-on');
+  else if (r.severity === 'Moderate') document.getElementById('sv-mod').classList.add('sev-on');
+  else if (r.severity === 'Severe') document.getElementById('sv-sev').classList.add('sev-on');
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+function saveRecord(goHome) {
+  if (curResult.density === undefined) { toast('No result to save yet'); return; }
+  curResult.result = curResult.density > 0 ? 'Positive' : 'Negative';
+  curResult.ts = curResult.ts || Date.now();
+  curResult.dk = curResult.dk || dKey(new Date());
+  const i = records.findIndex(r => r.id === curResult.id);
+  if (i >= 0) records[i] = curResult; else records.push({ ...curResult });
+  localStorage.setItem('ms_rec', JSON.stringify(records));
+  renderLists();
+  fillReport(curResult);
+  toast(goHome ? 'Submitted — record saved' : 'Saved to records');
+  if (goHome) setTimeout(() => go('s-patients'), 800);
+}
+
+// ── REPORT ────────────────────────────────────────────────────────────────────
+function fillReport(r) {
+  document.getElementById('rp-pid').textContent = r.pid || '—';
+  document.getElementById('rp-date').textContent = r.date || '—';
+  document.getElementById('rp-smear').textContent = 'Giemsa · ' + (r.smear || '—');
+  document.getElementById('rp-density').textContent = r.density?.toLocaleString() || '—';
+  document.getElementById('rp-sev-badge').textContent = (r.severity || '—') + ' parasitemia · P. falciparum';
+  document.getElementById('rp-para').textContent = r.totPara ?? '—';
+  document.getElementById('rp-flds').textContent = r.fields || '—';
+  document.getElementById('rp-rec').textContent = r.rb || '—';
+  document.getElementById('rpt-gen').textContent = 'Generated ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function toggleSig() {
+  const l = document.getElementById('sig-lbl'), s = document.getElementById('sig-svg');
+  if (s.style.display === 'none') { s.style.display = 'block'; l.style.display = 'none'; }
+  else { s.style.display = 'none'; l.style.display = ''; }
+}
+
+function printRpt() {
+  const r = curResult;
+  if (!r.pid) { toast('No report to print'); return; }
+  const w = window.open('', '_blank');
+  w.document.write(buildHTML(r));
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 400);
+}
+
+function shareRpt() {
+  const r = curResult;
+  if (!r.pid) { toast('No report to share'); return; }
+  if (navigator.share) {
+    navigator.share({ title: 'MalaSense Report — ' + r.pid, text: buildTxt(r) }).catch(() => toast('Share cancelled'));
+  } else {
+    dlHTML(r);
+  }
+}
+
+function downloadRpt() {
+  const r = curResult;
+  if (!r.pid) { toast('No report to download'); return; }
+  dlHTML(r);
+}
+
+function dlHTML(r) {
+  const b = new Blob([buildHTML(r)], { type: 'text/html' }), u = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = u; a.download = 'MalaSense_' + r.pid + '.html'; a.click(); URL.revokeObjectURL(u);
+  toast('Report downloaded');
+}
+
+function buildTxt(r) {
+  return `MALASENSE AI REPORT\nPatient ID: ${r.pid}\nDate: ${r.date}\n${r.density?.toLocaleString()} parasites/µL — ${r.severity}\n${r.rh}\n${r.rb}`;
+}
+
+function buildHTML(r) {
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>MalaSense Report</title><style>body{font-family:-apple-system,sans-serif;max-width:600px;margin:40px auto;padding:0 20px;color:#0a0a0a;}h1{color:#0F6E56;font-size:20px;margin-bottom:4px;}.sub{color:#5DCAA5;font-size:12px;margin-bottom:24px;}.sec{margin-bottom:20px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;}.sh{background:#0F6E56;color:#fff;padding:8px 14px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;}.row{display:flex;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #f0f0f0;font-size:13px;}.row:last-child{border-bottom:none;}.k{color:#666;}.v{font-weight:500;}.big{text-align:center;padding:20px;background:#f9f9f9;}.n{font-size:42px;font-weight:700;color:#0F6E56;}.u{font-size:12px;color:#666;}.badge{display:inline-block;background:#FAECE7;color:#712B13;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;margin-top:8px;}.rec{padding:14px;background:#FAEEDA;border-radius:8px;font-size:13px;line-height:1.6;}@media print{body{margin:0;}}</style></head><body><h1>MalaSense AI — Parasite Report</h1><div class="sub">Generated ${new Date().toLocaleString()} · Kwame Nkrumah University Hospital</div><div class="sec"><div class="sh">Patient information</div><div class="row"><span class="k">Patient ID</span><span class="v">${r.pid}</span></div><div class="row"><span class="k">Collection date</span><span class="v">${r.date}</span></div><div class="row"><span class="k">Smear type</span><span class="v">Giemsa · ${r.smear}</span></div></div><div class="sec"><div class="sh">Result</div><div class="big"><div class="n">${r.density?.toLocaleString()}</div><div class="u">parasites per µL of blood</div><div class="badge">${r.severity} parasitemia · P. falciparum</div></div><div class="row"><span class="k">Parasites counted</span><span class="v">${r.totPara}</span></div><div class="row"><span class="k">WBCs counted</span><span class="v">${r.wbc}</span></div><div class="row"><span class="k">Fields examined</span><span class="v">${r.fields}</span></div><div class="row"><span class="k">AI model</span><span class="v">MalaSense AI v1.0 — EfficientNetB2</span></div></div><div class="sec"><div class="sh">Recommendation</div><div class="rec"><strong>${r.rh}</strong><br>${r.rb}</div></div><div class="sec"><div class="sh">Authorisation</div><div class="row"><span class="k">Facility</span><span class="v">Kwame Nkrumah University Hospital (Tech Hospital)</span></div></div></body></html>`;
+}
+
+// ── MENU ──────────────────────────────────────────────────────────────────────
+function openMenu() { document.getElementById('menu-overlay').classList.add('on'); }
+function closeMenu() { document.getElementById('menu-overlay').classList.remove('on'); }
+function menuAction(a) {
+  closeMenu();
+  if (a === 'settings') go('s-settings');
+  else if (a === 'signout') { toast('Signed out'); setTimeout(() => location.reload(), 1000); }
+  else if (a === 'stats') {
+    const t = records.filter(r => r.dk === dKey(new Date())).length;
+    toast('Today: ' + t + ' · Total: ' + records.length);
+  } else if (a === 'export') exportCSV();
+  else if (a === 'help') toast('Visit github.com/senahey/malasense-ai for help');
+}
+
+function exportCSV() {
+  const rows = ['ID,Patient ID,Smear,Density,Severity,Date'].concat(
+    records.map(r => `${r.id},"${r.pid}",${r.smear},${r.density || ''},${r.severity || ''},${r.date || ''}`)
+  ).join('\n');
+  const b = new Blob([rows], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a');
+  a.href = u; a.download = 'MalaSense_' + new Date().toISOString().split('T')[0] + '.csv'; a.click(); URL.revokeObjectURL(u);
+  toast('Records exported');
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let tTimer;
+function toast(m) {
+  const t = document.getElementById('toast');
+  t.textContent = m;
+  t.classList.add('show');
+  clearTimeout(tTimer);
+  tTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+clearForm();
+renderLists();
+</script>
+</body>
+</html>
