@@ -377,6 +377,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="cap-corner" style="bottom:8px;left:8px;border-width:0 0 2px 2px;border-radius:0 0 0 4px;"></div>
       <div class="cap-corner" style="bottom:8px;right:8px;border-width:0 2px 2px 0;border-radius:0 0 4px 0;"></div>
       <div class="cam-lbl">Live — Field <span id="cap-field-num">1</span></div>
+      <!-- Zoom controls (shown only when the camera is running) -->
+      <div id="zoom-ctrl" onclick="event.stopPropagation()" style="display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);align-items:center;gap:8px;background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);border-radius:20px;padding:5px 8px;z-index:5;">
+        <button onclick="zoomStep(-1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,0.9);color:#1a1a1a;font-size:18px;font-weight:600;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <input id="zoom-slider" type="range" min="1" max="5" step="0.1" value="1" oninput="setZoom(parseFloat(this.value))" style="width:110px;accent-color:#1D9E75;">
+        <button onclick="zoomStep(1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,0.9);color:#1a1a1a;font-size:18px;font-weight:600;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        <span id="zoom-lbl" style="color:#fff;font-size:11px;font-weight:600;min-width:30px;text-align:center;">1.0×</span>
+      </div>
     </div>
     <div class="shutter" onclick="captureField()"><div class="shutter-inner"></div></div>
     <div style="text-align:center;font-size:12px;color:var(--txt2);margin-top:-4px;margin-bottom:14px;">Tap to capture a field</div>
@@ -883,37 +890,153 @@ function updCapUI() {
 }
 
 // Auto-start camera when capture screen loads
+// Camera zoom/focus state
+let camTrack = null;            // the active video MediaStreamTrack
+let hasHardwareZoom = false;    // true if the device exposes the zoom constraint
+let zoomRange = { min: 1, max: 5, step: 0.1 };
+let currentZoom = 1;
+
 async function startCamAuto() {
   if (camOn) return;
   const lbl = document.getElementById('cam-status-lbl');
   try {
-    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    // Request the back camera + continuous autofocus (ignored gracefully if unsupported)
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        focusMode: 'continuous',
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
+    });
     const v = document.getElementById('video-el');
     v.srcObject = camStream;
     v.style.display = 'block';
     camOn = true;
     lbl.textContent = 'Camera active — live feed running';
     toast('Camera ready');
+
+    // --- set up zoom + focus from the track's capabilities ---
+    camTrack = camStream.getVideoTracks()[0];
+    setupCameraControls();
+
+    // tap-to-focus: tapping the live view attempts a focus (where supported)
+    v.onclick = tapToFocus;
+
   } catch (e) {
     lbl.textContent = 'Camera unavailable — use Upload image below';
     toast('Camera not accessible. Use Upload image.');
   }
 }
 
+function setupCameraControls() {
+  const ctrl = document.getElementById('zoom-ctrl');
+  const slider = document.getElementById('zoom-slider');
+  hasHardwareZoom = false;
+  currentZoom = 1;
+
+  try {
+    const caps = camTrack.getCapabilities ? camTrack.getCapabilities() : {};
+    // Try to enable continuous autofocus explicitly
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+      camTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{});
+    }
+    // Hardware zoom available?
+    if (caps.zoom) {
+      hasHardwareZoom = true;
+      zoomRange = { min: caps.zoom.min || 1, max: caps.zoom.max || 5,
+                    step: caps.zoom.step || 0.1 };
+      slider.min = zoomRange.min;
+      slider.max = zoomRange.max;
+      slider.step = zoomRange.step || 0.1;
+      slider.value = zoomRange.min;
+      currentZoom = zoomRange.min;
+    } else {
+      // fall back to digital (CSS) zoom, 1x–5x
+      zoomRange = { min: 1, max: 5, step: 0.1 };
+      slider.min = 1; slider.max = 5; slider.step = 0.1; slider.value = 1;
+    }
+  } catch (e) {
+    zoomRange = { min: 1, max: 5, step: 0.1 };
+  }
+
+  ctrl.style.display = 'flex';
+  updateZoomLabel();
+}
+
+function setZoom(z) {
+  z = Math.max(zoomRange.min, Math.min(zoomRange.max, z));
+  currentZoom = z;
+  const v = document.getElementById('video-el');
+
+  if (hasHardwareZoom && camTrack) {
+    // Real optical/sensor zoom — enlarges detail, not just pixels
+    camTrack.applyConstraints({ advanced: [{ zoom: z }] }).catch(()=>{
+      // if it fails mid-session, fall back to digital
+      v.style.transform = `scale(${z})`;
+    });
+    v.style.transform = '';   // hardware zoom handles it; no CSS scaling
+  } else {
+    // Digital zoom — CSS scale (magnifies without adding detail)
+    v.style.transform = `scale(${z})`;
+    v.style.transformOrigin = 'center center';
+  }
+  document.getElementById('zoom-slider').value = z;
+  updateZoomLabel();
+}
+
+function zoomStep(dir) {
+  const step = (zoomRange.step || 0.1) * (hasHardwareZoom ? 5 : 3); // sensible click size
+  setZoom(currentZoom + dir * step);
+}
+
+function updateZoomLabel() {
+  document.getElementById('zoom-lbl').textContent = currentZoom.toFixed(1) + '×';
+}
+
+// Attempt a single-shot focus where the device supports it
+function tapToFocus() {
+  if (!camTrack) return;
+  try {
+    const caps = camTrack.getCapabilities ? camTrack.getCapabilities() : {};
+    if (caps.focusMode && caps.focusMode.includes('single-shot')) {
+      camTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
+        .then(() => toast('Focusing…'))
+        .catch(()=>{});
+    } else if (caps.focusMode && caps.focusMode.includes('continuous')) {
+      // nudge continuous AF to re-converge
+      camTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{});
+    }
+  } catch (e) {}
+}
+
 function stopCam() {
   if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
   const v = document.getElementById('video-el');
-  if (v) { v.style.display = 'none'; v.srcObject = null; }
+  if (v) { v.style.display = 'none'; v.srcObject = null; v.style.transform = ''; }
   camOn = false;
+  camTrack = null;
+  const ctrl = document.getElementById('zoom-ctrl');
+  if (ctrl) ctrl.style.display = 'none';
 }
 
 async function captureField() {
   if (camOn) {
     const v = document.getElementById('video-el');
     const c = document.getElementById('cap-canvas');
-    c.width = v.videoWidth || 320;
-    c.height = v.videoHeight || 240;
-    c.getContext('2d').drawImage(v, 0, 0);
+    const vw = v.videoWidth || 320, vh = v.videoHeight || 240;
+
+    if (!hasHardwareZoom && currentZoom > 1) {
+      // Digital zoom: capture only the center region the user actually sees,
+      // so the saved image matches the zoomed live view (hardware zoom needs no crop).
+      const cropW = vw / currentZoom, cropH = vh / currentZoom;
+      const sx = (vw - cropW) / 2, sy = (vh - cropH) / 2;
+      c.width = cropW; c.height = cropH;
+      c.getContext('2d').drawImage(v, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
+    } else {
+      c.width = vw; c.height = vh;
+      c.getContext('2d').drawImage(v, 0, 0);
+    }
     const imageData = c.toDataURL('image/jpeg', 0.85);
     await runAnalysis(imageData);
   } else {
