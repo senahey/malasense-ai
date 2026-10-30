@@ -1,0 +1,32 @@
+# Python dependencies for the MalaSense AI training notebooks.
+#
+# The notebooks were developed and run in a Kaggle GPU environment (two NVIDIA
+# Tesla T4 GPUs), where most of these packages are preinstalled. The versions
+# below are the ones used during development; pin or relax them to match your
+# own environment. A GPU with CUDA support is strongly recommended for training.
+
+# Core deep learning
+tensorflow==2.15.0            # thin and thick EfficientNetB2 classifiers
+ultralytics==8.4.103          # YOLOv8-nano parasite detector
+
+# Data handling and numerical
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.4.2
+Pillow==10.3.0                # image loading (PIL)
+
+# Visualization
+matplotlib==3.8.4
+seaborn==0.13.2
+
+# Dataset access (Kaggle)
+kagglehub==0.3.0
+
+# Model conversion for in-browser deployment (TensorFlow.js)
+# Used in the detector/conversion notebook to export the trained Keras models to
+# the TensorFlow.js graph-model format served by the web app. Install this in a
+# separate environment if its dependencies conflict with the training stack.
+tensorflowjs==4.22.0
+
+# Standard-library modules used by the notebooks (no installation needed):
+#   os, glob, zipfile, collections
